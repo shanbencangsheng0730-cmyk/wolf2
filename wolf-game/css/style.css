@@ -1,0 +1,87 @@
+/*共通デザイン・レイアウト*/
+body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    margin: 0;
+    padding: 20px;
+  }
+
+  h2, h3 {
+    color: #ff4d4d;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+  }
+
+  /* 画面切り替え用の必須クラス */
+  .hidden { 
+    display: none !important; 
+  }
+
+  /*🔘 ボタンのデザインと「押した時の反応」*/
+  button {
+    background-color: #333;
+    color: #fff;
+    border: 1px solid #555;
+    padding: 10px 15px;
+    font-size: 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    /* アニメーションと立体感の影 */
+    transition: all 0.1s ease;
+    box-shadow: 0 4px 0 #000;
+    margin: 5px;
+  }
+
+  button:hover {
+    background-color: #444;
+  }
+
+  /* ★ ここがボタンを押した時の「沈み込み」の動き ★ */
+  button:active {
+    transform: translateY(4px); /* 下に4pxずれる */
+    box-shadow: 0 0 0 #000;     /* 影を消して押し込んだ感を出す */
+  }
+
+  /* 特殊なボタンのカラーリング */
+  .btn-secondary { background-color: #555; }
+  .btn-delete-role { background-color: transparent; border: none; box-shadow: none; font-size: 1.2rem; }
+  .btn-delete-role:active { transform: scale(0.8); /* 削除ボタンは小さくなる動き */ }
+  #btnStartOnlineGame { background-color: #ff4d4d; color: white; font-weight: bold; font-size: 1.2rem; }
+  #btnStartOnlineGame:hover { background-color: #ff3333; }
+
+  /*各種パーツの装飾*/
+  .room-info-badge { background: #333; color: #fff; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 1.2rem; }
+  .member-list { background: #2a2a2a; padding: 15px; border-radius: 5px; list-style: none; margin: 10px 0; color: #fff;}
+  .member-list li { margin-bottom: 5px; font-size: 1.1rem; }
+  .error-msg { color: #ff4d4d; font-weight: bold; margin: 10px 0; }
+  input[type="text"], input[type="number"], select { padding: 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: #fff; }
+
+  /* 役職カスタム行のレイアウト */
+  .custom-row { display: flex; align-items: center; margin-bottom: 10px; }
+  .role-label-area { width: 140px; }
+  .role-control-area { display: flex; align-items: center; gap: 10px; }
+  .role-count-input { width: 55px; text-align: center; }
+  .btn-placeholder { width: 32px; display: inline-block; }
+
+  /* メモ欄のグリッド配置（2列など並列にする） */
+  #playerMemoContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+  }
+  .player-row {
+    background: #2a2a2a;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+
+  /* 役職確認の秘密カード */
+  .role-secret-card { 
+    background: #111; color: #ff4d4d; padding: 40px 20px; 
+    text-align: center; border-radius: 10px; font-size: 1.5rem; font-weight: bold; 
+    margin: 20px 0; border: 2px dashed #ff4d4d; cursor: pointer; user-select: none; 
+    transition: background 0.3s;
+  }

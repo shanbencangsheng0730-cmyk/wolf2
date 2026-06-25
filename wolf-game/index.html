@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>人狼ゲーム・オンラインGMレスツール</title>
+  <button id="btnVoiceTest" style="background: #a33;">🔊 音声テスト</button>
+  <style>
+    /* ==========================================
+       共通デザイン・レイアウト
+       ========================================== */
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #1a1a1a;
+      color: #e0e0e0;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h2, h3 {
+      color: #ff4d4d;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    }
+
+    /* 画面切り替え用の必須クラス */
+    .hidden { 
+      display: none !important; 
+    }
+
+    /* ==========================================
+       🔘 ボタンのデザインと「押した時の反応」
+       ========================================== */
+    button {
+      background-color: #333;
+      color: #fff;
+      border: 1px solid #555;
+      padding: 10px 15px;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      /* アニメーションと立体感の影 */
+      transition: all 0.1s ease;
+      box-shadow: 0 4px 0 #000;
+      margin: 5px;
+    }
+
+    button:hover {
+      background-color: #444;
+    }
+
+    /* ★ ここがボタンを押した時の「沈み込み」の動き ★ */
+    button:active {
+      transform: translateY(4px); /* 下に4pxずれる */
+      box-shadow: 0 0 0 #000;     /* 影を消して押し込んだ感を出す */
+    }
+
+    /* 特殊なボタンのカラーリング */
+    .btn-secondary { background-color: #555; }
+    .btn-delete-role { background-color: transparent; border: none; box-shadow: none; font-size: 1.2rem; }
+    .btn-delete-role:active { transform: scale(0.8); /* 削除ボタンは小さくなる動き */ }
+    #btnStartOnlineGame { background-color: #ff4d4d; color: white; font-weight: bold; font-size: 1.2rem; }
+    #btnStartOnlineGame:hover { background-color: #ff3333; }
+
+    /* ==========================================
+       各種パーツの装飾
+       ========================================== */
+    .room-info-badge { background: #333; color: #fff; padding: 10px; border-radius: 5px; margin: 10px 0; font-size: 1.2rem; }
+    .member-list { background: #2a2a2a; padding: 15px; border-radius: 5px; list-style: none; margin: 10px 0; color: #fff;}
+    .member-list li { margin-bottom: 5px; font-size: 1.1rem; }
+    .error-msg { color: #ff4d4d; font-weight: bold; margin: 10px 0; }
+    input[type="text"], input[type="number"], select { padding: 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: #fff; }
+
+    /* 役職カスタム行のレイアウト */
+    .custom-row { display: flex; align-items: center; margin-bottom: 10px; }
+    .role-label-area { width: 140px; }
+    .role-control-area { display: flex; align-items: center; gap: 10px; }
+    .role-count-input { width: 55px; text-align: center; }
+    .btn-placeholder { width: 32px; display: inline-block; }
+
+    /* メモ欄のグリッド配置（2列など並列にする） */
+    #playerMemoContainer {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 15px;
+      margin-top: 20px;
+    }
+    .player-row {
+      background: #2a2a2a;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    /* 役職確認の秘密カード */
+    .role-secret-card { 
+      background: #111; color: #ff4d4d; padding: 40px 20px; 
+      text-align: center; border-radius: 10px; font-size: 1.5rem; font-weight: bold; 
+      margin: 20px 0; border: 2px dashed #ff4d4d; cursor: pointer; user-select: none; 
+      transition: background 0.3s;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="screenOnlineMenu">
+    <h2>🐺 オンライン人狼システム</h2>
+    <p>各自の端末から参加して、GMレスでゲームを進行します。</p>
+    
+    <div style="background: #222; padding: 20px; margin-bottom: 20px; border-radius: 8px;">
+      <h3>🏠 部屋を新しく作る（ホスト・元GM）</h3>
+      <button type="button" id="btnCreateRoom">部屋を作成する ✨</button>
+    </div>
+
+    <div style="background: #222; padding: 20px; border-radius: 8px;">
+      <h3>🚪 既存の部屋に入る（プレイヤー）</h3>
+      <div style="margin-bottom: 15px;">
+        <label>部屋番号（4桁）：</label>
+        <input type="text" id="inputRoomId" placeholder="例: 1234" maxlength="4" style="font-size:1.2rem; width:100px; text-align:center;">
+      </div>
+      <div style="margin-bottom: 15px;">
+        <label>あなたの名前：</label>
+        <input type="text" id="inputPlayerName" placeholder="プレイヤー名" style="font-size:1.1rem;">
+      </div>
+      <button type="button" id="btnJoinRoom">部屋に参加する ➡️</button>
+    </div>
+  </div>
+
+  <div id="screenWaiting" class="hidden">
+    <h2>⏳ 住民集結中...</h2>
+    <div class="room-info-badge">部屋番号: <span id="waitRoomId">----</span></div>
+    <p>ホストがゲームを開始するまで、この画面のままコッソリお待ちください。</p>
+    <h3>現在の参加者一覧：</h3>
+    <ul id="waitMemberList" class="member-list"></ul>
+    <p style="font-size: 0.9rem; color: #888;">※全員が集まったら、ホストが自動的にゲームを開始します。</p>
+  </div>
+
+  <div id="screenA" class="hidden">
+    <h2>🐺 【ホスト画面】人狼ゲームを開始する</h2>
+    <div class="room-info-badge">部屋番号: <span id="hostRoomIdA">----</span></div>
+    <h3>現在の参加者一覧：</h3>
+    <ul id="hostMemberListA" class="member-list"></ul>
+
+    <p>村に集まった住民の人数を入力してください（現在の参加人数に合わせて自動調整されます）。</p>
+    <div style="margin-bottom: 20px;">
+      <label for="playerInput">プレイヤー人数：</label>
+      <input type="number" id="playerInput" value="4" min="4" max="20" style="font-size:1.2rem; width:60px;"> 名
+    </div>
+
+    <button type="button" id="btnAtoB">次へ進む (配役設定へ) ➡️</button>
+  </div>
+
+  <div id="screenB" class="hidden">
+    <h2>⚙️ 【ホスト画面】役職配分のカスタマイズ</h2>
+    <div class="room-info-badge">部屋番号: <span id="hostRoomIdB">----</span></div>
+    <p>現在のプレイヤー人数：<strong id="displayPlayerCount" style="font-size:1.2rem; color:#ff4d4d;">0</strong>名</p>
+    
+    <div style="background: #222; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+      <div style="margin-bottom: 20px;">
+        <input type="text" id="localRoleName" placeholder="新しい役職名（例: 狂人）">
+        <button type="button" id="btnDynamicAddRole">役職を追加 ＋</button>
+      </div>
+
+      <div id="roleCustomContainer">
+        <div class="custom-row">
+          <div class="role-label-area"><label>人狼:</label></div>
+          <div class="role-control-area">
+            <input type="number" id="countWerewolf" class="role-count-input" data-role-id="werewolf" min="0">
+            <span class="btn-placeholder"></span>
+          </div>
+        </div>
+
+        <div class="custom-row">
+          <div class="role-label-area"><label>占い師:</label></div>
+          <div class="role-control-area">
+            <input type="number" id="countSeer" class="role-count-input" data-role-id="seer" min="0">
+            <span class="btn-placeholder"></span>
+          </div>
+        </div>
+
+        <div class="custom-row">
+          <div class="role-label-area"><label>霊媒師:</label></div>
+          <div class="role-control-area">
+            <input type="number" id="countMedium" class="role-count-input" data-role-id="medium" min="0">
+            <span class="btn-placeholder"></span>
+          </div>
+        </div>
+
+        <div class="custom-row">
+          <div class="role-label-area"><label>狩人:</label></div>
+          <div class="role-control-area">
+            <input type="number" id="countBodyguard" class="role-count-input" data-role-id="bodyguard" min="0">
+            <span class="btn-placeholder"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="custom-row" style="margin-top: 15px; border-top: 1px solid #444; padding-top: 10px;">
+        <div class="role-label-area"><label>村人 (残り枠):</label></div>
+        <div class="role-control-area">
+          <span id="countVillager" style="font-size:1.2rem; font-weight:bold;">0</span>
+          <span class="btn-placeholder"></span>
+        </div>
+      </div>
+
+      <div id="errorMessage" class="error-msg hidden"></div>
+    </div>
+
+    <div>
+      <button type="button" id="btnBtoA" class="btn-secondary">🔙 人数入力に戻る</button>
+      <button type="button" id="btnStartOnlineGame">🔥 役職を配ってゲーム開始！ 🔥</button>
+    </div>
+  </div>
+
+  <div id="screenC" class="hidden">
+    <h2>📝 【ホスト画面】プレイヤー配役メモ</h2>
+    <p>全員の配役は以下の通りに自動配布されました（GM用のカンペです）。</p>
+    
+    <div id="playerMemoContainer"></div>
+    
+    <p style="color: #4caf50; font-weight: bold; margin-top: 20px;">※プレイヤー達の端末には、自動的に自分の役職だけが届いているぞ！</p>
+
+    <div style="margin-top: 40px; text-align: center; border-top: 1px solid #444; padding-top: 20px;">
+      <button type="button" onclick="resetToTop()" class="btn-secondary">🔄 ゲームを終了して最初に戻る</button>
+    </div>
+  </div>
+
+  <div id="screenRoleCheck" class="hidden">
+    <h2>👁️ あなたの秘密の役職</h2>
+    <p><span id="displayMyName" style="font-size:1.2rem; color:#ff4d4d; font-weight:bold;">あなた</span> さんの役職が届いています。</p>
+    <p style="color:#aaa; font-size:0.9rem;">※注意：周りの人に見られないように確認してくれ！</p>
+
+    <div id="roleCardArea" class="role-secret-card">
+      ここを長押し（またはクリック）している間だけ、役職を表示 👁️
+    </div>
+    
+    <p style="text-align: center; color: #888;">指を離すと役職が闇に隠れます。</p>
+
+    <div style="margin-top: 40px; text-align: center; border-top: 1px solid #444; padding-top: 20px;">
+      <button type="button" onclick="resetToTop()" class="btn-secondary">🔄 村を去る（最初に戻る）</button>
+    </div>
+  </div>
+
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-firestore.js";
+
+    // Firebase接続情報
+    const firebaseConfig = {
+      apiKey: "AIzaSyC0KC1CuUkzRSORNyPNA9hfLJl-dUsqz4o",
+      authDomain: "wolf-7a867.firebaseapp.com",
+      projectId: "wolf-7a867",
+      storageBucket: "wolf-7a867.firebasestorage.app",
+      messagingSenderId: "301835688244",
+      appId: "1:301835688244:web:95a226a3b6d3e8d01bed61"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let currentRoomId = null;
+    let isHost = false;
+    let myName = "";
+    let myRole = "村人";
+    let totalPlayers = 0;
+    let localRoles = [];
+
+    const screenOnlineMenu = document.getElementById('screenOnlineMenu');
+    const screenWaiting = document.getElementById('screenWaiting');
+    const screenA = document.getElementById('screenA');
+    const screenB = document.getElementById('screenB');
+    const screenC = document.getElementById('screenC');
+    const screenRoleCheck = document.getElementById('screenRoleCheck');
+
+    function hideAllScreens() {
+      [screenOnlineMenu, screenWaiting, screenA, screenB, screenC, screenRoleCheck].forEach(s => s.classList.add('hidden'));
+    }
+
+    // --- 🏠 部屋作成・参加処理 ---
+    document.getElementById('btnCreateRoom').addEventListener('click', async () => {
+      const roomId = String(Math.floor(1000 + Math.random() * 9000));
+      currentRoomId = roomId;
+      isHost = true;
+
+      await setDoc(doc(db, "rooms", roomId), {
+        status: "waiting",
+        players: [],
+        rolesDistributed: {}
+      });
+
+      document.getElementById('hostRoomIdA').textContent = roomId;
+      document.getElementById('hostRoomIdB').textContent = roomId;
+      
+      hideAllScreens();
+      screenA.classList.remove('hidden');
+      listenRoom(roomId);
+    });
+
+    document.getElementById('btnJoinRoom').addEventListener('click', async () => {
+      const roomId = document.getElementById('inputRoomId').value.trim();
+      myName = document.getElementById('inputPlayerName').value.trim();
+
+      if (!roomId || !myName) return alert("部屋番号とあなたの名前を入力してくれ。");
+
+      const roomRef = doc(db, "rooms", roomId);
+      const roomSnap = await getDoc(roomRef);
+
+      if (!roomSnap.exists()) return alert("該当する部屋が見つからないぞ。");
+      const roomData = roomSnap.data();
+      if (roomData.status !== "waiting") return alert("ゲームは既に始まっている。");
+      if (roomData.players.includes(myName)) return alert("その名前はすでに村に存在する。");
+
+      currentRoomId = roomId;
+      isHost = false;
+
+      await updateDoc(roomRef, { players: [...roomData.players, myName] });
+
+      document.getElementById('waitRoomId').textContent = roomId;
+      document.getElementById('displayMyName').textContent = myName;
+
+      hideAllScreens();
+      screenWaiting.classList.remove('hidden');
+      listenRoom(roomId);
+    });
+
+    // 📡 リアルタイム監視
+    function listenRoom(roomId) {
+      onSnapshot(doc(db, "rooms", roomId), (snapshot) => {
+        if (!snapshot.exists()) return;
+        const data = snapshot.data();
+        const players = data.players || [];
+        
+        updateMemberListUI(players);
+
+        if (isHost && !screenA.classList.contains('hidden')) {
+          document.getElementById('playerInput').value = Math.max(4, players.length);
+        }
+
+        if (!isHost && data.status === "playing") {
+          myRole = data.rolesDistributed[myName] || "村人";
+          hideAllScreens();
+          screenRoleCheck.classList.remove('hidden');
+        }
+      });
+    }
+
+    function updateMemberListUI(players) {
+      const listContent = players.map(p => `<li>👤 ${p}</li>`).join('');
+      document.getElementById('waitMemberList').innerHTML = listContent;
+      document.getElementById('hostMemberListA').innerHTML = listContent;
+    }
+
+    // --- ⚙️ ホスト専用：画面A・B遷移と計算 ---
+    const roleCustomContainer = document.getElementById('roleCustomContainer');
+    const inputWerewolf = document.getElementById('countWerewolf');
+    const inputSeer = document.getElementById('countSeer');
+    const inputMedium = document.getElementById('countMedium');
+    const inputBodyguard = document.getElementById('countBodyguard');
+    const spanVillager = document.getElementById('countVillager');
+    const errorMessage = document.getElementById('errorMessage');
+
+    document.getElementById('btnAtoB').addEventListener('click', () => {
+      totalPlayers = parseInt(document.getElementById('playerInput').value, 10) || 4;
+      if (totalPlayers < 4) return alert("人狼ゲームは4人以上で始めてくれ。");
+
+      localRoles = [];
+      roleCustomContainer.querySelectorAll('.local-role-row').forEach(r => r.remove());
+
+      calculateDefaultRoles(totalPlayers);
+      updateVillagerCountOnly();
+
+      screenA.classList.add('hidden');
+      screenB.classList.remove('hidden');
+    });
+
+    document.getElementById('btnBtoA').addEventListener('click', () => {
+      screenB.classList.add('hidden');
+      screenA.classList.remove('hidden');
+    });
+
+    [inputWerewolf, inputSeer, inputMedium, inputBodyguard].forEach(input => {
+      input.addEventListener('input', updateVillagerCountOnly);
+    });
+
+    document.getElementById('btnDynamicAddRole').addEventListener('click', () => {
+      const roleName = document.getElementById('localRoleName').value.trim();
+      if (!roleName) return alert("役職名を入力してくれ。");
+      
+      const roleId = 'local_' + Date.now();
+      const newRow = document.createElement('div');
+      newRow.className = 'custom-row local-role-row';
+      newRow.innerHTML = `
+        <div class="role-label-area"><label>${roleName}:</label></div>
+        <div class="role-control-area">
+          <input type="number" value="1" min="0" class="role-count-input" data-role-id="${roleId}">
+          <button type="button" class="btn-delete-role" data-target-id="${roleId}">❌</button>
+        </div>
+      `;
+      roleCustomContainer.appendChild(newRow);
+
+      newRow.querySelector('input').addEventListener('input', updateVillagerCountOnly);
+      newRow.querySelector('.btn-delete-role').addEventListener('click', () => {
+        localRoles = localRoles.filter(r => r.id !== roleId);
+        newRow.remove();
+        updateVillagerCountOnly();
+      });
+
+      localRoles.push({ id: roleId, name: roleName });
+      document.getElementById('localRoleName').value = '';
+      updateVillagerCountOnly();
+    });
+
+    function calculateDefaultRoles(count) {
+      document.getElementById('displayPlayerCount').textContent = count;
+      let w=1, s=1, m=0, b=0;
+      if (count >= 6) b=1; if (count >= 8) w=2; if (count >= 9) m=1; if (count >= 11) w=3;
+      inputWerewolf.value = w; inputSeer.value = s; inputMedium.value = m; inputBodyguard.value = b;
+    }
+
+    function updateVillagerCountOnly() {
+      let specialTotal = (parseInt(inputWerewolf.value)||0) + (parseInt(inputSeer.value)||0) + 
+                         (parseInt(inputMedium.value)||0) + (parseInt(inputBodyguard.value)||0);
+      roleCustomContainer.querySelectorAll('.role-count-input').forEach(inp => {
+        if (inp.getAttribute('data-role-id').startsWith('local_')) specialTotal += (parseInt(inp.value)||0);
+      });
+      const v = totalPlayers - specialTotal;
+      spanVillager.textContent = v;
+      
+      if (v < 0) {
+        errorMessage.textContent = "役職の合計数がプレイヤー人数を超えているぞ！";
+        errorMessage.classList.remove('hidden');
+      } else {
+        errorMessage.classList.add('hidden');
+      }
+    }
+
+    // --- 🎲 配役シャッフルとゲーム開始 ---
+    document.getElementById('btnStartOnlineGame').addEventListener('click', async () => {
+      if (!errorMessage.classList.contains('hidden')) return alert("役職エラーがあるうちは進めないぞ。");
+
+      const roomRef = doc(db, "rooms", currentRoomId);
+      const roomSnap = await getDoc(roomRef);
+      const activePlayers = roomSnap.data().players || [];
+      if (activePlayers.length === 0) return alert("まだ誰も部屋に入っていないぞ。");
+
+      let rolePool = [];
+      for(let i=0; i<(parseInt(inputWerewolf.value)||0); i++) rolePool.push("人狼 🐺");
+      for(let i=0; i<(parseInt(inputSeer.value)||0); i++) rolePool.push("占い師 🔮");
+      for(let i=0; i<(parseInt(inputMedium.value)||0); i++) rolePool.push("霊媒師 🔮");
+      for(let i=0; i<(parseInt(inputBodyguard.value)||0); i++) rolePool.push("狩人 🏹");
+      for(let i=0; i<(parseInt(spanVillager.textContent)||0); i++) rolePool.push("村人 🧑");
+
+      localRoles.forEach(lr => {
+        const input = roleCustomContainer.querySelector(`[data-role-id="${lr.id}"]`);
+        const count = input ? (parseInt(input.value)||0) : 0;
+        for(let i=0; i<count; i++) rolePool.push(lr.name);
+      });
+
+      while(rolePool.length < activePlayers.length) rolePool.push("村人 🧑");
+
+      for (let i = rolePool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rolePool[i], rolePool[j]] = [rolePool[j], rolePool[i]];
+      }
+
+      const rolesDistributed = {};
+      activePlayers.forEach((p, i) => rolesDistributed[p] = rolePool[i]);
+
+      await updateDoc(roomRef, {
+        status: "playing",
+        players: activePlayers,
+        rolesDistributed: rolesDistributed
+      });
+
+      buildHostMemoUI(activePlayers, rolesDistributed);
+      screenB.classList.add('hidden');
+      screenC.classList.remove('hidden');
+    });
+
+    function buildHostMemoUI(players, distributed) {
+      const container = document.getElementById('playerMemoContainer');
+      container.innerHTML = ''; 
+      players.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        row.innerHTML = `<label style="color:#aaa;">👤 Player ${i + 1}</label><br>
+                         <strong style="font-size:1.2rem;">${p}</strong><br>
+                         <span style="display:inline-block; margin-top:5px; background:#444; padding:5px; border-radius:3px;">
+                           🎁 ${distributed[p]}
+                         </span>`;
+        container.appendChild(row);
+      });
+    }
+
+    // --- 👁️ プレイヤー用：役職確認アクション ---
+    const roleCardArea = document.getElementById('roleCardArea');
+    const revealRole = () => {
+      roleCardArea.textContent = `あなたは 【 ${myRole} 】 です`;
+      roleCardArea.style.background = "#551111";
+      roleCardArea.style.color = "#fff";
+    };
+    const hideRole = () => {
+      roleCardArea.textContent = "ここを長押し（またはクリック）している間だけ、役職を表示 👁️";
+      roleCardArea.style.background = "#111";
+      roleCardArea.style.color = "#ff4d4d";
+    };
+    roleCardArea.addEventListener('mousedown', revealRole);
+    roleCardArea.addEventListener('mouseup', hideRole);
+    roleCardArea.addEventListener('mouseleave', hideRole);
+    roleCardArea.addEventListener('touchstart', (e) => { e.preventDefault(); revealRole(); });
+    roleCardArea.addEventListener('touchend', (e) => { e.preventDefault(); hideRole(); });
+
+    // --- 🔄 リセット（輪廻）処理 ---
+    window.resetToTop = function() {
+      if (confirm("ゲームを終了して最初の画面に戻りますか？\n※現在の部屋との通信は切断されます。")) {
+        window.location.reload();
+      }
+    };
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
